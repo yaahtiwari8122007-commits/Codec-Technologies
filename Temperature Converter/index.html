@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Temperature Converter</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #131b2e;
+      --card-inner: #0b1120;
+      --border: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      
+      /* Dynamic theme colors */
+      --temp-accent: #38bdf8;
+      --temp-glow: rgba(56, 189, 248, 0.2);
+      
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(239, 68, 68, 0.06) 0px, transparent 50%);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+    }
+
+    .badge-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      margin-bottom: 0.6rem;
+    }
+
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    /* Main Card */
+    .converter-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      transition: border-color 0.4s ease;
+    }
+
+    /* Live Feeling Banner */
+    .status-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.85rem 1.15rem;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .status-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .status-info h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .status-info p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .temp-pill {
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      background: var(--temp-glow);
+      color: var(--temp-accent);
+      border: 1px solid var(--temp-accent);
+      transition: all 0.3s ease;
+    }
+
+    /* Visual Thermometer Bar */
+    .gauge-container {
+      margin-bottom: 1.5rem;
+    }
+
+    .gauge-track {
+      position: relative;
+      height: 10px;
+      border-radius: 9999px;
+      background: linear-gradient(to right, 
+        #06b6d4 0%,   /* Freezing Cyan */
+        #3b82f6 25%,  /* Cold Blue */
+        #10b981 50%,  /* Mild Green */
+        #f59e0b 75%,  /* Warm Amber */
+        #ef4444 100%  /* Hot Red */
+      );
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .gauge-marker {
+      position: absolute;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      background: #ffffff;
+      border-radius: 50%;
+      border: 3px solid var(--temp-accent);
+      box-shadow: 0 0 10px var(--temp-accent);
+      transform: translate(-50%, -50%);
+      transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+      left: 50%;
+    }
+
+    .gauge-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 0.4rem;
+    }
+
+    /* Input Field Blocks */
+    .inputs-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .field-card {
+      background: var(--card-inner);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 0.85rem 1.1rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+
+    .field-card:focus-within {
+      border-color: var(--temp-accent);
+      box-shadow: 0 0 0 3px var(--temp-glow);
+    }
+
+    .field-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.35rem;
+    }
+
+    .field-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .field-unit-badge {
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: var(--temp-accent);
+    }
+
+    .field-input-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .temp-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    /* Remove spin arrows */
+    .temp-input::-webkit-outer-spin-button,
+    .temp-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .temp-input {
+      -moz-appearance: textfield;
+    }
+
+    /* Presets Section */
+    .presets-wrap {
+      margin-top: 1.5rem;
+    }
+
+    .presets-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+
+    @media (min-width: 480px) {
+      .presets-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .preset-btn {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 0.5rem;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--temp-accent);
+      background: rgba(56, 189, 248, 0.05);
+      transform: translateY(-1px);
+    }
+
+    .preset-name {
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+
+    .preset-val {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    /* Formula Footnote */
+    .formula-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .formula-note code {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 0.15rem 0.4rem;
+      border-radius: 6px;
+      color: var(--temp-accent);
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <span class="badge-tag">Zero-Click Utility</span>
+      <h1>Temperature Converter</h1>
+      <p>Type in any field to instantly calculate across all units.</p>
+    </header>
+
+    <div class="converter-card" id="card">
+      <!-- Dynamic Feel Status Banner -->
+      <div class="status-banner" id="status-banner">
+        <div class="status-left">
+          <div class="status-icon" id="feel-icon">🌡️</div>
+          <div class="status-info">
+            <h4 id="feel-title">Room Temperature</h4>
+            <p id="feel-desc">Comfortable standard room setting</p>
+          </div>
+        </div>
+        <div class="temp-pill" id="feel-pill">Comfortable</div>
+      </div>
+
+      <!-- Thermometer Spectrum Scale -->
+      <div class="gauge-container">
+        <div class="gauge-track">
+          <div class="gauge-marker" id="gauge-marker"></div>
+        </div>
+        <div class="gauge-labels">
+          <span>-20°C (Freezing)</span>
+          <span>0°C</span>
+          <span>25°C</span>
+          <span>50°C</span>
+          <span>100°C (Boiling)</span>
+        </div>
+      </div>
+
+      <!-- Live Two-Way Inputs -->
+      <div class="inputs-grid">
+        <!-- Celsius -->
+        <div class="field-card">
+          <div class="field-top">
+            <span class="field-title">Celsius</span>
+            <span class="field-unit-badge">°C</span>
+          </div>
+          <div class="field-input-row">
+            <input type="number" id="input-c" class="temp-input" placeholder="0" step="any">
+          </div>
+        </div>
+
+        <!-- Fahrenheit -->
+        <div class="field-card">
+          <div class="field-top">
+            <span class="field-title">Fahrenheit</span>
+            <span class="field-unit-badge">°F</span>
+          </div>
+          <div class="field-input-row">
+            <input type="number" id="input-f" class="temp-input" placeholder="32" step="any">
+          </div>
+        </div>
+
+        <!-- Kelvin -->
+        <div class="field-card">
+          <div class="field-top">
+            <span class="field-title">Kelvin</span>
+            <span class="field-unit-badge">K</span>
+          </div>
+          <div class="field-input-row">
+            <input type="number" id="input-k" class="temp-input" placeholder="273.15" step="any">
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Preset Benchmarks -->
+      <div class="presets-wrap">
+        <div class="presets-title">Quick Presets</div>
+        <div class="presets-grid">
+          <button type="button" class="preset-btn" onclick="applyPreset(0)">
+            <span class="preset-name">❄️ Freezing</span>
+            <span class="preset-val">0 °C</span>
+          </button>
+          <button type="button" class="preset-btn" onclick="applyPreset(22)">
+            <span class="preset-name">🛋️ Room Temp</span>
+            <span class="preset-val">22 °C</span>
+          </button>
+          <button type="button" class="preset-btn" onclick="applyPreset(37)">
+            <span class="preset-name">🩺 Body Temp</span>
+            <span class="preset-val">37 °C</span>
+          </button>
+          <button type="button" class="preset-btn" onclick="applyPreset(100)">
+            <span class="preset-name">♨️ Boiling</span>
+            <span class="preset-val">100 °C</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formula Reference -->
+    <p class="formula-note">
+      Formulas: <code>(°C × 9/5) + 32 = °F</code> &bull; <code>°C + 273.15 = K</code>
+    </p>
+  </div>
+
+  <script>
+    // Grab input elements
+    const inputC = document.getElementById('input-c');
+    const inputF = document.getElementById('input-f');
+    const inputK = document.getElementById('input-k');
+
+    // Indicator elements
+    const feelIcon = document.getElementById('feel-icon');
+    const feelTitle = document.getElementById('feel-title');
+    const feelDesc = document.getElementById('feel-desc');
+    const feelPill = document.getElementById('feel-pill');
+    const gaugeMarker = document.getElementById('gauge-marker');
+    const root = document.documentElement;
+
+    /**
+     * Flag to eliminate recursion/infinite input loops.
+     * When one input calculates the others, changing their `.value` triggers no secondary events.
+     */
+    let isUpdating = false;
+
+    /**
+     * Formats numbers neatly: removes trailing zero decimals (e.g. 25 instead of 25.00),
+     * while preserving up to 2 decimal places when relevant.
+     */
+    function formatVal(val) {
+      if (isNaN(val)) return '';
+      return parseFloat(val.toFixed(2)).toString();
+    }
+
+    /**
+     * Dynamic visual feedback based on the current Celsius value
+     */
+    function updateVisuals(celsius) {
+      if (isNaN(celsius) || inputC.value.trim() === '') {
+        feelIcon.textContent = '🌡️';
+        feelTitle.textContent = 'Awaiting Input';
+        feelDesc.textContent = 'Type a temperature in any box above';
+        feelPill.textContent = 'Idle';
+        gaugeMarker.style.left = '50%';
+        setAccent('#38bdf8', 'rgba(56, 189, 248, 0.15)');
+        return;
+      }
+
+      // Determine category and visual aesthetics
+      let accent = '#38bdf8';
+      let glow = 'rgba(56, 189, 248, 0.2)';
+      let icon = '❄️';
+      let title = 'Freezing';
+      let desc = 'Below ice formation point (≤ 0°C)';
+      let label = 'Freezing';
+
+      if (celsius < 0) {
+        accent = '#06b6d4'; // Cyan
+        glow = 'rgba(6, 182, 212, 0.2)';
+        icon = '🧊';
+        title = 'Sub-Zero Freezing';
+        desc = 'Water turns solid; frostbite risk in extreme conditions';
+        label = 'Freezing';
+      } else if (celsius >= 0 && celsius < 15) {
+        accent = '#3b82f6'; // Blue
+        glow = 'rgba(59, 130, 246, 0.2)';
+        icon = '🧥';
+        title = 'Chilly / Cold';
+        desc = 'Cool outdoor weather; warm clothing suggested';
+        label = 'Cold';
+      } else if (celsius >= 15 && celsius < 26) {
+        accent = '#10b981'; // Green
+        glow = 'rgba(16, 185, 129, 0.2)';
+        icon = '🌿';
+        title = 'Mild & Comfortable';
+        desc = 'Ideal room temperature and pleasant atmosphere';
+        label = 'Comfortable';
+      } else if (celsius >= 26 && celsius < 38) {
+        accent = '#f59e0b'; // Amber
+        glow = 'rgba(245, 158, 11, 0.2)';
+        icon = '☀️';
+        title = 'Warm to Body Heat';
+        desc = 'Warm summer conditions; normal human body range';
+        label = 'Warm';
+      } else {
+        accent = '#ef4444'; // Red
+        glow = 'rgba(239, 68, 68, 0.25)';
+        icon = '🔥';
+        title = 'Extremely Hot';
+        desc = 'High thermal intensity; water approaches boiling point';
+        label = 'Hot';
+      }
+
+      // Update feedback labels
+      feelIcon.textContent = icon;
+      feelTitle.textContent = title;
+      feelDesc.textContent = desc;
+      feelPill.textContent = label;
+
+      setAccent(accent, glow);
+
+      // Position the thermometer slider needle (-20°C to 100°C spectrum)
+      const minRange = -20;
+      const maxRange = 100;
+      const clamped = Math.min(Math.max(celsius, minRange), maxRange);
+      const percent = ((clamped - minRange) / (maxRange - minRange)) * 100;
+      gaugeMarker.style.left = `${percent}%`;
+    }
+
+    function setAccent(color, glowColor) {
+      root.style.setProperty('--temp-accent', color);
+      root.style.setProperty('--temp-glow', glowColor);
+    }
+
+    /**
+     * Input Listeners:
+     * We listen to the live 'input' event for instantaneous reactions.
+     * Guard flag `isUpdating` prevents secondary cascade loops.
+     */
+    inputC.addEventListener('input', () => {
+      if (isUpdating) return;
+      isUpdating = true;
+
+      const c = parseFloat(inputC.value);
+      if (inputC.value.trim() === '' || isNaN(c)) {
+        inputF.value = '';
+        inputK.value = '';
+        updateVisuals(NaN);
+      } else {
+        // C -> F: (C * 9/5) + 32
+        inputF.value = formatVal((c * 9 / 5) + 32);
+        // C -> K: C + 273.15
+        inputK.value = formatVal(c + 273.15);
+        updateVisuals(c);
+      }
+
+      isUpdating = false;
+    });
+
+    inputF.addEventListener('input', () => {
+      if (isUpdating) return;
+      isUpdating = true;
+
+      const f = parseFloat(inputF.value);
+      if (inputF.value.trim() === '' || isNaN(f)) {
+        inputC.value = '';
+        inputK.value = '';
+        updateVisuals(NaN);
+      } else {
+        // F -> C: (F - 32) * 5/9
+        const c = (f - 32) * 5 / 9;
+        inputC.value = formatVal(c);
+        // F -> K: (F - 32) * 5/9 + 273.15
+        inputK.value = formatVal(c + 273.15);
+        updateVisuals(c);
+      }
+
+      isUpdating = false;
+    });
+
+    inputK.addEventListener('input', () => {
+      if (isUpdating) return;
+      isUpdating = true;
+
+      const k = parseFloat(inputK.value);
+      if (inputK.value.trim() === '' || isNaN(k)) {
+        inputC.value = '';
+        inputF.value = '';
+        updateVisuals(NaN);
+      } else {
+        // K -> C: K - 273.15
+        const c = k - 273.15;
+        inputC.value = formatVal(c);
+        // K -> F: (K - 273.15) * 9/5 + 32
+        inputF.value = formatVal((c * 9 / 5) + 32);
+        updateVisuals(c);
+      }
+
+      isUpdating = false;
+    });
+
+    /**
+     * Applies preset temperature in Celsius
+     */
+    function applyPreset(celsiusVal) {
+      inputC.value = celsiusVal;
+      // Dispatch input event to fire conversion chain
+      inputC.dispatchEvent(new Event('input'));
+    }
+
+    // Set initial baseline to Room Temperature (22 °C)
+    applyPreset(22);
+  </script>
+</body>
+</html>
