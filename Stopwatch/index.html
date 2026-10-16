@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classic Stopwatch</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(19, 27, 46, 0.75);
+      --card-inner: #0b1120;
+      --border: #1e293b;
+      --border-focus: #38bdf8;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --font-mono: "SF Mono", "Roboto Mono", Menlo, Consolas, Monaco, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+    }
+
+    .badge-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      margin-bottom: 0.6rem;
+    }
+
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    /* Stopwatch Card */
+    .stopwatch-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2rem 1.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Time Display Dial */
+    .time-display-wrap {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      background: var(--card-inner);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      padding: 1.5rem 1.25rem;
+      width: 100%;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .time-display-wrap.running {
+      border-color: var(--primary);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 20px var(--primary-glow);
+    }
+
+    .digits-primary {
+      font-family: var(--font-mono);
+      font-size: 3.25rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .colon {
+      margin: 0 0.1rem;
+      color: var(--text-muted);
+    }
+
+    .digits-ms {
+      font-family: var(--font-mono);
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-left: 0.4rem;
+      min-width: 44px;
+      line-height: 1;
+    }
+
+    /* Interactive Action Controls */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    .btn {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      outline: none;
+      border-radius: 14px;
+      padding: 0.85rem 0.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-start {
+      background: var(--success);
+      color: #064e3b;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-start:hover:not(:disabled) {
+      background: #34d399;
+      transform: translateY(-1px);
+    }
+
+    .btn-stop {
+      background: var(--danger);
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+    }
+
+    .btn-stop:hover:not(:disabled) {
+      background: #f87171;
+      transform: translateY(-1px);
+    }
+
+    .btn-lap {
+      background: var(--card-inner);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-lap:hover:not(:disabled) {
+      border-color: var(--primary);
+      background: rgba(56, 189, 248, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .btn-reset {
+      background: var(--card-inner);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-reset:hover:not(:disabled) {
+      color: var(--text);
+      border-color: #64748b;
+      transform: translateY(-1px);
+    }
+
+    /* Lap Statistics / Splits Section */
+    .laps-container {
+      width: 100%;
+      margin-top: 0.5rem;
+      max-height: 220px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+      display: none; /* hidden until 1st lap added */
+    }
+
+    .laps-container.visible {
+      display: block;
+    }
+
+    /* Custom Scrollbar for Laps */
+    .laps-container::-webkit-scrollbar {
+      width: 5px;
+    }
+    .laps-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .laps-container::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 9999px;
+    }
+
+    .lap-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.55rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      transition: background 0.2s ease;
+    }
+
+    .lap-row:nth-child(odd) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .lap-num {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .lap-split {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .lap-overall {
+      font-size: 0.78rem;
+    }
+
+    /* Highlight fastest and slowest */
+    .lap-fastest {
+      color: var(--success) !important;
+      background: rgba(16, 185, 129, 0.08) !important;
+    }
+    .lap-fastest .lap-split {
+      color: var(--success) !important;
+    }
+
+    .lap-slowest {
+      color: var(--danger) !important;
+      background: rgba(239, 68, 68, 0.08) !important;
+    }
+    .lap-slowest .lap-split {
+      color: var(--danger) !important;
+    }
+
+    /* Keyboard Shortcuts Footer Note */
+    .shortcuts-note {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .kbd {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <span class="badge-tag">Precision Timer</span>
+      <h1>Classic Stopwatch</h1>
+      <p>Zero-drift millisecond time tracker with lap split metrics.</p>
+    </header>
+
+    <div class="stopwatch-card">
+      <!-- Digital Display -->
+      <div class="time-display-wrap" id="display-wrap">
+        <span class="digits-primary" id="display-time">00:00</span>
+        <span class="colon">:</span>
+        <span class="digits-ms" id="display-ms">00</span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="controls-grid">
+        <!-- Start / Stop Toggle -->
+        <button type="button" class="btn btn-start" id="btn-toggle">
+          <span id="toggle-icon">▶</span>
+          <span id="toggle-text">Start</span>
+        </button>
+
+        <!-- Lap Button -->
+        <button type="button" class="btn btn-lap" id="btn-lap" disabled>
+          <span>⏱</span>
+          <span>Lap</span>
+        </button>
+
+        <!-- Reset Button -->
+        <button type="button" class="btn btn-reset" id="btn-reset" disabled>
+          <span>↺</span>
+          <span>Reset</span>
+        </button>
+      </div>
+
+      <!-- Lap Splits Table -->
+      <div class="laps-container" id="laps-container">
+        <div id="laps-list"></div>
+      </div>
+    </div>
+
+    <!-- Keyboard Controls Helper -->
+    <p class="shortcuts-note">
+      Keyboard: <span class="kbd">Space</span> Start / Stop &bull; 
+      <span class="kbd">L</span> Lap &bull; 
+      <span class="kbd">R</span> Reset
+    </p>
+  </div>
+
+  <script>
+    // Timing State Variables
+    let startTime = 0;          // Timestamp when current run started
+    let accumulatedTime = 0;    // Time passed across paused sessions (ms)
+    let timerInterval = null;   // Interval identifier
+    let isRunning = false;      // Running flag
+    
+    // Lap Tracking
+    let laps = [];              // Stores lap objects: { lapNum, splitMs, totalMs }
+    let lastLapTimestamp = 0;   // Elapsed time when last lap was recorded
+
+    // DOM Elements
+    const displayWrap = document.getElementById('display-wrap');
+    const displayTime = document.getElementById('display-time');
+    const displayMs = document.getElementById('display-ms');
+
+    const btnToggle = document.getElementById('btn-toggle');
+    const toggleIcon = document.getElementById('toggle-icon');
+    const toggleText = document.getElementById('toggle-text');
+
+    const btnLap = document.getElementById('btn-lap');
+    const btnReset = document.getElementById('btn-reset');
+    const lapsContainer = document.getElementById('laps-container');
+    const lapsList = document.getElementById('laps-list');
+
+    /**
+     * Formats milliseconds into formatted string components:
+     * Returns { timeStr: "MM:SS", msStr: "cs" (centiseconds 00-99) }
+     */
+    function formatTime(totalMs) {
+      const minutes = Math.floor(totalMs / 60000);
+      const seconds = Math.floor((totalMs % 60000) / 1000);
+      const centiseconds = Math.floor((totalMs % 1000) / 10);
+
+      const m = String(minutes).padStart(2, '0');
+      const s = String(seconds).padStart(2, '0');
+      const cs = String(centiseconds).padStart(2, '0');
+
+      return {
+        timeStr: `${m}:${s}`,
+        msStr: cs,
+        fullFormatted: `${m}:${s}.${cs}`
+      };
+    }
+
+    /**
+     * Updates the digital UI display with the given elapsed millisecond count.
+     */
+    function updateDisplay(elapsedMs) {
+      const { timeStr, msStr } = formatTime(elapsedMs);
+      displayTime.textContent = timeStr;
+      displayMs.textContent = msStr;
+    }
+
+    /**
+     * Core tick handler executed via setInterval.
+     * Uses timestamp delta (performance.now() - startTime) to prevent timer drift.
+     */
+    function tick() {
+      const currentElapsed = (performance.now() - startTime) + accumulatedTime;
+      updateDisplay(currentElapsed);
+    }
+
+    /**
+     * Start the stopwatch
+     */
+    function start() {
+      if (isRunning) return;
+      isRunning = true;
+      startTime = performance.now();
+
+      // Run tick updates every 10ms for smooth 2-digit centisecond accuracy
+      timerInterval = setInterval(tick, 10);
+
+      // UI state updates
+      displayWrap.classList.add('running');
+      btnToggle.className = 'btn btn-stop';
+      toggleIcon.textContent = '⏸';
+      toggleText.textContent = 'Stop';
+
+      btnLap.disabled = false;
+      btnReset.disabled = false;
+    }
+
+    /**
+     * Pause / Stop the stopwatch
+     */
+    function stop() {
+      if (!isRunning) return;
+      isRunning = false;
+      clearInterval(timerInterval);
+      timerInterval = null;
+
+      // Commit elapsed delta to accumulated balance
+      accumulatedTime += (performance.now() - startTime);
+
+      // UI state updates
+      displayWrap.classList.remove('running');
+      btnToggle.className = 'btn btn-start';
+      toggleIcon.textContent = '▶';
+      toggleText.textContent = 'Start';
+      btnLap.disabled = true;
+    }
+
+    /**
+     * Toggle Start / Stop
+     */
+    function toggleTimer() {
+      if (isRunning) {
+        stop();
+      } else {
+        start();
+      }
+    }
+
+    /**
+     * Record a lap split
+     */
+    function recordLap() {
+      if (!isRunning) return;
+
+      const currentElapsed = (performance.now() - startTime) + accumulatedTime;
+      const splitTime = currentElapsed - lastLapTimestamp;
+      lastLapTimestamp = currentElapsed;
+
+      const lapNumber = laps.length + 1;
+      laps.unshift({
+        num: lapNumber,
+        split: splitTime,
+        overall: currentElapsed
+      });
+
+      renderLaps();
+    }
+
+    /**
+     * Renders lap items and highlights fastest / slowest when >= 2 laps exist
+     */
+    function renderLaps() {
+      if (laps.length === 0) {
+        lapsContainer.classList.remove('visible');
+        lapsList.innerHTML = '';
+        return;
+      }
+
+      lapsContainer.classList.add('visible');
+
+      // Determine fastest & slowest split when multiple laps exist
+      let minSplit = Infinity;
+      let maxSplit = -Infinity;
+
+      if (laps.length >= 2) {
+        laps.forEach(lap => {
+          if (lap.split < minSplit) minSplit = lap.split;
+          if (lap.split > maxSplit) maxSplit = lap.split;
+        });
+      }
+
+      let html = '';
+      laps.forEach(lap => {
+        let highlightClass = '';
+        let tag = '';
+
+        if (laps.length >= 2) {
+          if (lap.split === minSplit) {
+            highlightClass = 'lap-fastest';
+            tag = ' (Best)';
+          } else if (lap.split === maxSplit) {
+            highlightClass = 'lap-slowest';
+            tag = ' (Slowest)';
+          }
+        }
+
+        const splitFormatted = formatTime(lap.split).fullFormatted;
+        const overallFormatted = formatTime(lap.overall).fullFormatted;
+
+        html += `
+          <div class="lap-row ${highlightClass}">
+            <span class="lap-num">Lap ${String(lap.num).padStart(2, '0')}${tag}</span>
+            <span class="lap-split">+${splitFormatted}</span>
+            <span class="lap-overall">${overallFormatted}</span>
+          </div>
+        `;
+      });
+
+      lapsList.innerHTML = html;
+    }
+
+    /**
+     * Reset the stopwatch back to 00:00:00
+     */
+    function reset() {
+      stop();
+      accumulatedTime = 0;
+      lastLapTimestamp = 0;
+      laps = [];
+
+      updateDisplay(0);
+      renderLaps();
+
+      btnReset.disabled = true;
+      btnLap.disabled = true;
+      btnToggle.className = 'btn btn-start';
+      toggleIcon.textContent = '▶';
+      toggleText.textContent = 'Start';
+      displayWrap.classList.remove('running');
+    }
+
+    // Attach Event Listeners
+    btnToggle.addEventListener('click', toggleTimer);
+    btnLap.addEventListener('click', recordLap);
+    btnReset.addEventListener('click', reset);
+
+    // Keyboard Shortcuts Support
+    window.addEventListener('keydown', (e) => {
+      // Prevent shortcut trigger if focus is on an input or textarea
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleTimer();
+      } else if (e.key.toLowerCase() === 'l') {
+        if (!btnLap.disabled) recordLap();
+      } else if (e.key.toLowerCase() === 'r') {
+        if (!btnReset.disabled) reset();
+      }
+    });
+  </script>
+</body>
+</html>
